@@ -1,4 +1,4 @@
-# ConceptVectors Benchmark
+# ConceptVectors Benchmark (EMNLP 2025 Main)
 
 This repository contains the data for the ConceptVectors Benchmark and the code for the experiments in our paper titled **[Intrinsic Evaluation of Unlearning Using Parametric Knowledge Traces]**
 
