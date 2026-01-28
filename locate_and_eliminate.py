@@ -31,6 +31,20 @@ from collections import defaultdict
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from utils import set_random_seed
 
+# Monkey-patch for PyTorch/transformers version compatibility
+# Older PyTorch versions don't accept device_type argument in is_autocast_enabled
+_original_is_autocast_enabled = torch.is_autocast_enabled
+def _patched_is_autocast_enabled(device_type=None):
+    try:
+        if device_type is not None:
+            return _original_is_autocast_enabled(device_type)
+        else:
+            return _original_is_autocast_enabled()
+    except TypeError:
+        # Fallback for older PyTorch versions
+        return _original_is_autocast_enabled()
+torch.is_autocast_enabled = _patched_is_autocast_enabled
+
 
 def get_mlp_output_hooks(model):
     """Register forward hooks on all MLP down_proj (value vector) layers
