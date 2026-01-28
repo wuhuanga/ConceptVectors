@@ -148,11 +148,17 @@ def locate_concept_vectors(model, tokenizer, concept, sentences, mask_token="som
     diff_accum = defaultdict(lambda: None)
     count = 0
 
+    # Disable use_cache and convert to float32 to avoid autocast compatibility issues
+    use_cache_orig = model.config.use_cache
+    model.config.use_cache = False
+    original_dtype = next(model.parameters()).dtype
+    model.float()  # Convert to float32 for compatibility
+
     for orig_sent, mask_sent in zip(sentences, masked_sentences):
         # Forward pass on original sentence
         hooks_orig, acts_orig = get_mlp_input_hooks(model)
         inputs_orig = tokenizer(orig_sent, return_tensors="pt", padding=False).to(model.device)
-        with torch.no_grad():
+        with torch.inference_mode():
             model(**inputs_orig)
         for h in hooks_orig:
             h.remove()
@@ -160,7 +166,7 @@ def locate_concept_vectors(model, tokenizer, concept, sentences, mask_token="som
         # Forward pass on masked sentence
         hooks_mask, acts_mask = get_mlp_input_hooks(model)
         inputs_mask = tokenizer(mask_sent, return_tensors="pt", padding=False).to(model.device)
-        with torch.no_grad():
+        with torch.inference_mode():
             model(**inputs_mask)
         for h in hooks_mask:
             h.remove()
@@ -180,6 +186,13 @@ def locate_concept_vectors(model, tokenizer, concept, sentences, mask_token="som
                 diff_accum[layer_idx] = diff_accum[layer_idx] + diff
 
         count += 1
+
+    # Restore model to original dtype and settings
+    model.config.use_cache = use_cache_orig
+    if original_dtype == torch.bfloat16:
+        model.bfloat16()
+    elif original_dtype == torch.float16:
+        model.half()
 
     # Average and find top-k across all layers
     all_diffs = []
