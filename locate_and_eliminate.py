@@ -488,17 +488,29 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--locate_only", action="store_true",
                         help="Only locate concept vectors, do not eliminate")
+    parser.add_argument("--device", type=str, default="cuda",
+                        choices=["cuda", "cpu"],
+                        help="Device to run on (cuda or cpu)")
 
     args = parser.parse_args()
     set_random_seed(args.seed)
+
+    # Determine device and dtype
+    if args.device == "cpu":
+        device = torch.device("cpu")
+        dtype = torch.float32
+        print("Running on CPU (this will be slow but works without compatible GPU)")
+    else:
+        device = torch.device("cuda")
+        dtype = torch.bfloat16
 
     # Load model and tokenizer
     print(f"Loading model from {args.model_path}...")
     tokenizer = AutoTokenizer.from_pretrained(args.model_path, trust_remote_code=True)
     tokenizer.pad_token = tokenizer.eos_token
     model = AutoModelForCausalLM.from_pretrained(
-        args.model_path, torch_dtype=torch.bfloat16, trust_remote_code=True
-    ).cuda()
+        args.model_path, torch_dtype=dtype, trust_remote_code=True
+    ).to(device)
 
     # Step 1: Locate concept vectors
     locations = locate_concept_vectors(
@@ -522,8 +534,8 @@ def main():
     oracle_model = None
     if args.forget_loss not in ['grad_ascent', 'grad_diff']:
         oracle_model = AutoModelForCausalLM.from_pretrained(
-            args.model_path, torch_dtype=torch.bfloat16, trust_remote_code=True
-        ).cuda()
+            args.model_path, torch_dtype=dtype, trust_remote_code=True
+        ).to(device)
 
     model = eliminate_concept(
         model, tokenizer, args.sentences, args.concept, locations,

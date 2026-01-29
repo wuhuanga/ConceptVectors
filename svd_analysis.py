@@ -326,10 +326,22 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--top_k_svd", type=int, default=100,
                         help="Number of top singular values to analyze")
+    parser.add_argument("--device", type=str, default="cuda",
+                        choices=["cuda", "cpu"],
+                        help="Device to run on (cuda or cpu)")
 
     args = parser.parse_args()
     set_random_seed(args.seed)
     os.makedirs(args.save_dir, exist_ok=True)
+
+    # Determine device and dtype
+    if args.device == "cpu":
+        device = torch.device("cpu")
+        dtype = torch.float32
+        print("Running on CPU (this will be slow but works without compatible GPU)")
+    else:
+        device = torch.device("cuda")
+        dtype = torch.bfloat16
 
     # Load model
     print(f"Loading model from {args.model_path}...")
@@ -353,8 +365,8 @@ def main():
 
         # Load fresh model for each method
         model = AutoModelForCausalLM.from_pretrained(
-            args.model_path, torch_dtype=torch.bfloat16, trust_remote_code=True
-        ).cuda()
+            args.model_path, torch_dtype=dtype, trust_remote_code=True
+        ).to(device)
 
         # Get weights before unlearning
         print("Extracting weights before unlearning...")
@@ -365,8 +377,8 @@ def main():
         if method not in ['grad_ascent', 'grad_diff']:
             print("Loading oracle model...")
             oracle_model = AutoModelForCausalLM.from_pretrained(
-                args.model_path, torch_dtype=torch.bfloat16, trust_remote_code=True
-            ).cuda()
+                args.model_path, torch_dtype=dtype, trust_remote_code=True
+            ).to(device)
 
         # Run unlearning
         print(f"Running {method} unlearning...")
