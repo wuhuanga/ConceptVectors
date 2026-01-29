@@ -150,7 +150,8 @@ def compare_svd(weights_before, weights_after, top_k=100):
 
 
 def run_unlearning(model, tokenizer, concept, sentences, method,
-                   lr=0.2, num_epochs=1, batch_size=4, oracle_model=None):
+                   lr=0.2, num_epochs=1, batch_size=4, oracle_model=None,
+                   use_bf16=True):
     """Run a specific unlearning method and return the modified model."""
     from locate_and_eliminate import locate_concept_vectors, eliminate_concept
 
@@ -165,6 +166,7 @@ def run_unlearning(model, tokenizer, concept, sentences, method,
         model, tokenizer, sentences, concept, locations,
         forget_loss=method, lr=lr, num_epochs=num_epochs,
         batch_size=batch_size, oracle_model=oracle_model,
+        use_bf16=use_bf16,
     )
 
     return model, locations
@@ -382,11 +384,13 @@ def main():
 
         # Run unlearning
         print(f"Running {method} unlearning...")
+        use_bf16 = (args.device == "cuda")
         try:
             model, locations = run_unlearning(
                 model, tokenizer, args.concept, args.sentences, method,
                 lr=args.lr, num_epochs=args.num_epochs,
-                batch_size=args.batch_size, oracle_model=oracle_model
+                batch_size=args.batch_size, oracle_model=oracle_model,
+                use_bf16=use_bf16
             )
         except Exception as e:
             print(f"Error running {method}: {e}")

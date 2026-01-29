@@ -297,7 +297,8 @@ def eliminate_concept(model, tokenizer, sentences, concept, locations,
                       forget_loss="grad_ascent", lr=0.2, num_epochs=1,
                       batch_size=4, gradient_accumulation_steps=8,
                       noise_scale=0.1, oracle_model=None,
-                      beta=0.1, npo_coeff=1.0, grad_diff_coeff=1.0, KL_coeff=1.0):
+                      beta=0.1, npo_coeff=1.0, grad_diff_coeff=1.0, KL_coeff=1.0,
+                      use_bf16=True):
     """Run concept elimination training on the located vectors.
 
     Args:
@@ -377,12 +378,12 @@ def eliminate_concept(model, tokenizer, sentences, concept, locations,
         warmup_steps=0,
         max_steps=max_steps,
         learning_rate=lr,
-        bf16=True,
-        bf16_full_eval=True,
+        bf16=use_bf16,
+        bf16_full_eval=use_bf16,
         logging_steps=max(1, steps_per_epoch),
         logging_dir=f'{data_path}/logs',
         output_dir=data_path,
-        optim="paged_adamw_32bit",
+        optim="adamw_torch",  # Use standard PyTorch AdamW (no bitsandbytes dependency)
         save_steps=max_steps + 1000000,
         ddp_find_unused_parameters=False,
         weight_decay=0.01,
@@ -537,12 +538,14 @@ def main():
             args.model_path, torch_dtype=dtype, trust_remote_code=True
         ).to(device)
 
+    use_bf16 = (args.device == "cuda")
     model = eliminate_concept(
         model, tokenizer, args.sentences, args.concept, locations,
         forget_loss=args.forget_loss, lr=args.lr,
         num_epochs=args.num_epochs, batch_size=args.batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         noise_scale=args.noise_scale, oracle_model=oracle_model,
+        use_bf16=use_bf16,
     )
 
     # Evaluate
